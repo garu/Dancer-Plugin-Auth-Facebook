@@ -22,12 +22,16 @@ my $cb_fail;
 my $fb_scope;
 my @scope;
 my $me_fields;
+my $check_debug_token;
+my $long_lived_token;
 
 register 'auth_fb_init' => sub {
   my $config = plugin_setting;
   $application_id       = $config->{application_id};
   $application_secret   = $config->{application_secret};
   $cb_url               = $config->{callback_url};
+  $check_debug_token    = $config->{check_debug_token};
+  $long_lived_token     = $config->{long_lived_token};
 
   $cb_success           = $config->{callback_success} || '/';
   $cb_fail              = $config->{callback_fail}    || '/fail';
@@ -89,6 +93,21 @@ get '/auth/facebook/callback' => sub {
       error "facebook error fetching access token: $@";
       return redirect $cb_fail;
     }
+
+    if ($long_lived_token) {
+        my $long_lived;
+        eval {
+            $long_lived = facebook->get_long_lived_token(
+                access_token => $access_token
+            );
+        };
+        if ($long_lived) {
+            $access_token = $long_lived;
+        }
+        else {
+            error "facebook error fetching long lived token: $@";
+        }
+    }
     session fb_access_token => $access_token;
   }
 
@@ -98,7 +117,12 @@ get '/auth/facebook/callback' => sub {
 
   my ($me, $fb_response);
   eval {
-    $fb_response = $fb->get( 'https://graph.facebook.com/v2.8/me' . ($me_fields ? "?fields=$me_fields" : '') );
+    if ($check_debug_token) {
+        my $debug_token = facebook->debug_token( input => $access_token );
+        die 'unable to validate debug_token from access_token ' . $access_token
+            unless $debug_token && $debug_token->{is_valid};
+    }
+    $fb_response = $fb->get( 'https://graph.facebook.com/v3.1/me' . ($me_fields ? "?fields=$me_fields" : '') );
     $me = $fb_response->as_hash;
   };
   if ($@ || !$me) {
@@ -165,18 +189,13 @@ has a habit of changing which fields are returned on that endpoint. To force
 any particular fields, please use the C<fields> setting in your plugin
 configuration as shown below.
 
-Please refer to L<< Facebook's documentation | https://developers.facebook.com/docs/graph-api/reference/v2.8/user >>
+Please refer to L<< Facebook's documentation | https://developers.facebook.com/docs/graph-api/reference/v3.1/user >>
 for all available data.
 
 =head1 FACEBOOK GRAPH API VERSION
 
-This module complies to Facebook Graph API version 2.8, the latest
-at the time of publication, B<< scheduled for deprecation on October 5th, 2018 >>.
-
-One month prior to that, Net::Facebook::Oauth2 (which this module uses to
-access Facebook's API) will trigger a warning message during your Dancer
-app's startup.
-
+This module complies to Facebook Graph API version 3.1, the latest
+at the time of publication, B<< scheduled for deprecation not sooner than July 26th, 2020 >>.
 
 =head1 PREREQUISITES
 
@@ -206,12 +225,15 @@ C<plugins/Auth::Facebook>:
             callback_fail:      "/fail"
             scope:              "email friends"
             fields:             "id,name,email"
+            check_debug_token:  1
+            long_lived_token:   1
 
-C<callback_success> , C<callback_fail>, C<scope> and C<fields> are optional
-and default to '/' , '/fail', 'email' and (empty) respectively.
+C<callback_success> , C<callback_fail>, C<scope>, C<fields>,
+C<check_debug_token> and C<long_lived_token> are optional and default to
+'/' , '/fail', 'email', (empty), 0 and 0, respectively.
 
-Note that you also need to provide your callback url, whose route handler is automatically
-created by the plugin.
+Note that you also need to provide your callback url, whose route handler
+is automatically created by the plugin.
 
 =item * Session backend
 
@@ -260,15 +282,30 @@ The plugin defines the following route handler automatically
 
 This route handler is responsible for catching back a user that has just
 authenticated herself with Facebook's OAuth. The route handler saves tokens and
-user information such as email,username and name in the session and then redirects the user to the URI
-specified by C<callback_success>.
+user information such as email,username and name in the session and then
+redirects the user to the URI specified by C<callback_success>.
 
 If the validation of the token returned by Facebook failed or was denied,
 the user will be redirect to the URI specified by C<callback_fail>.
 
+Note that Facebook introduced a security feature to debug access tokens,
+and encourages developers to call this endpoint to check whether the token
+is valid and linked to your app id. This incurs an extra GET to Facebook,
+and to preserve backwards compatibility it is disabled by default. To enable,
+simply add C<check_debug_token> to your settings with a true value.
+
+Also note that user B<access tokens from Facebook are short-lived>, with around
+just 2 hours of idle time until they expire and need to be re-authorized. To
+upgrade your access token to a long-lived version, potentially lasting about
+60 days, you must upgrade the token. This module will do it automatically for
+you if you pass a true value to the C<long_lived_token> setting in your config
+file. This requires an extra GET request to Facebook.
+L<See here|https://developers.facebook.com/docs/facebook-login/access-tokens/refreshing>
+for the gory details.
+
 =head1 ACKNOWLEDGEMENTS
 
-This project is a  port of L<Dancer::Plugin::Auth::Twitter> written by Alexis Sukrieh which itself is a port of
+This project is a port of L<Dancer::Plugin::Auth::Twitter> written by Alexis Sukrieh which itself is a port of
 L<Catalyst::Authentication::Credential::Twitter> written by Jesse Stay.
 
 
