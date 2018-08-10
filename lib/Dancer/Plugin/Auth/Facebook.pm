@@ -220,10 +220,10 @@ C<plugins/Auth::Facebook>:
         'Auth::Facebook':
             application_id:     "1234"
             application_secret: "abcd"
-            callback_url:       "http://localhost:3000/auth/facebook/callback"
+            callback_url:       "https://localhost:3000/auth/facebook/callback"
             callback_success:   "/"
             callback_fail:      "/fail"
-            scope:              "email friends"
+            scope:              "email"
             fields:             "id,name,email"
             check_debug_token:  1
             long_lived_token:   1
@@ -232,8 +232,12 @@ C<callback_success> , C<callback_fail>, C<scope>, C<fields>,
 C<check_debug_token> and C<long_lived_token> are optional and default to
 '/' , '/fail', 'email', (empty), 0 and 0, respectively.
 
+You can check L<Facebook's list of available permissions|https://developers.facebook.com/docs/facebook-login/permissions/>
+to put under your app's "scope".
+
 Note that you also need to provide your callback url, whose route handler
-is automatically created by the plugin.
+is automatically created by the plugin. After October 6 2018 apps are
+required to always use HTTPS.
 
 =item * Session backend
 
