@@ -42,9 +42,13 @@ You need to configure the plugin first: copy your *application_id* and *applicat
             callback_success:   "/"
             callback_fail:      "/fail"
             scope:              "email friends"
+            fields:             "id,name,email"
+            check_debug_token:  1
+            long_lived_token:   1
 
-*callback_success*, *callback_fail* and *scope* are optional and default to
-'/' , '/fail', and 'email' respectively.
+*callback_success*, *callback_fail*, *scope*, *fields*, *check_debug_token*
+and *long_lived_token* are optional and default to '/' , '/fail', 'email',
+(empty), 0 and 0, respectively.
 
 Note that you also need to provide your callback url, whose route handler is automatically
 created by the plugin.
@@ -58,12 +62,13 @@ Use the session backend of your choice, it doesn't make a difference, see
 [Dancer::Session](https://metacpan.org/pod/Dancer::Session) for details about
 supported session engines, or [search the CPAN for new ones](http://search.cpan.org/search?query=Dancer-Session).
 
-
+Check out more information on how to use this module on its
+[official MetaCPAN page](https://metacpan.org/pod/Dancer::Plugin::Auth::Facebook).
 
 COPYRIGHT AND LICENCE
 ---------------------
 
-Copyright (C) 2014-2016 by Prajith Ndimensionz
+Copyright (C) 2014-2018 by Prajith Ndimensionz
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
